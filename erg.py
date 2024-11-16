@@ -184,8 +184,8 @@ def run_simulation(mode="proportional_fair"):
         # Display Final Results
         print("\nFinal Allocations:")
         for user in users:
-            print(f"UE {user.ue_id} | Type: {user.traffic_type} | Demand: {user.traffic_demand:.2f} Mbps | "
-                  f"Allocated: {user.allocated_bandwidth:.2f} Mbps | Remaining: {user.remaining_demand:.2f} Mbps")
+            print(f"UE {user.ue_id} | Type: {user.traffic_type.ljust(16)} | Demand: {f'{user.traffic_demand:.2f}'.ljust(5)} Mbps | "
+                  f"Allocated: {f'{user.allocated_bandwidth:.2f}'.ljust(5)} Mbps | Remaining: {user.remaining_demand:.2f} Mbps")
 
         # Calculate and display metrics
         total_throughput, fairness_index, average_latency = calculate_metrics(users)
