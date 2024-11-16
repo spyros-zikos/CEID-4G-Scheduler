@@ -4,7 +4,7 @@ import argparse
 
 # Define parameters
 NUM_USERS = 10  # Number of User Equipments (UEs)
-TOTAL_BANDWIDTH = 200  # in Mbps, total bandwidth available at the base station
+TOTAL_BANDWIDTH = 50  # in Mbps, total bandwidth available at the base station
 DISPATCH_INTERVAL = 1  # seconds, interval to simulate sending records
 ALLOCATION_PER_STEP = 10  # in Mbps, fixed amount allocated per step
 
@@ -104,13 +104,14 @@ def proportional_fair_scheduler(users, total_bandwidth):
 # Sequential Round-Robin Allocation
 def sequential_round_robin(users, total_bandwidth, allocation_per_step):
     step_count = 0
-    start_time = time.time()
+    start_time = time.perf_counter()  # Use high-resolution timer
     
-    while any(user.remaining_demand > 0 for user in users):
+    while any(user.remaining_demand > 0 for user in users) and total_bandwidth > 0:
         for user in users:
             if user.remaining_demand > 0:
-                # Allocate bandwidth in a round-robin manner
-                allocation = min(allocation_per_step, user.remaining_demand)
+                # Determine the allocation amount as the minimum of the remaining demand, allocation step, and available bandwidth
+                allocation = min(allocation_per_step, user.remaining_demand, total_bandwidth)
+                
                 user.allocate_bandwidth(allocation)
                 total_bandwidth -= allocation
                 step_count += 1
@@ -120,16 +121,18 @@ def sequential_round_robin(users, total_bandwidth, allocation_per_step):
                 print(f"UE {user.ue_id} - Demand: {user.traffic_demand:.2f} Mbps, "
                       f"Allocated: {user.allocated_bandwidth:.2f} Mbps, "
                       f"Remaining: {user.remaining_demand:.2f} Mbps")
-                print(f"Remaining Total Bandwidth: {total_bandwidth:.2f} Mbps")
+                print(f"Remaining Total Bandwidth: {max(total_bandwidth, 0):.2f} Mbps")
                 
+                # Exit if no bandwidth remains
                 if total_bandwidth <= 0:
-                    end_time = time.time()
+                    end_time = time.perf_counter()  # Use high-resolution timer for end time
                     total_duration = end_time - start_time
-                    return step_count, total_bandwidth, total_duration
+                    return step_count, max(total_bandwidth, 0), total_duration
     
-    end_time = time.time()
+    end_time = time.perf_counter()  # Use high-resolution timer for end time
     total_duration = end_time - start_time
-    return step_count, total_bandwidth, total_duration
+    return step_count, max(total_bandwidth, 0), total_duration
+
 
 # Calculate Metrics
 def calculate_metrics(users):
@@ -171,7 +174,7 @@ def run_simulation(mode="proportional_fair"):
         print(f"Fairness Index: {fairness_index:.2f}")
         print(f"Average Latency: {average_latency:.2f} intervals")
         print(f"Total Steps Taken: {step_count}")
-        print(f"Total Time Elapsed: {total_duration:.2f} seconds")
+        print(f"Total Time Elapsed: {total_duration:.5f} seconds")
         print(f"Remaining Bandwidth: {remaining_bandwidth:.2f} Mbps")
 
     elif mode == "sequential_round_robin":
@@ -187,10 +190,9 @@ def run_simulation(mode="proportional_fair"):
         # Calculate and display metrics
         total_throughput, fairness_index, average_latency = calculate_metrics(users)
         print(f"\nTotal Throughput: {total_throughput:.2f} Mbps")
-        print(f"Fairness Index: {fairness_index:.2f}")
         print(f"Average Latency: {average_latency:.2f} intervals")
         print(f"Total Steps Taken: {step_count}")
-        print(f"Total Time Elapsed: {total_duration:.2f} seconds")
+        print(f"Total Time Elapsed: {total_duration:.5f} seconds")
         print(f"Remaining Bandwidth: {remaining_bandwidth:.2f} Mbps")
 
 # Main entry point to run simulation based on command-line argument
