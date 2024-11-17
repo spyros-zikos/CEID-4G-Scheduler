@@ -4,7 +4,6 @@ import argparse
 
 NUM_USERS = 10  # Number of User Equipments (UEs)
 TOTAL_BANDWIDTH = 50  # in Mbps, total bandwidth available at the base station
-DISPATCH_INTERVAL = 1  # seconds, interval to simulate sending records
 ALLOCATION_PER_STEP = 10  # in Mbps, fixed amount allocated per step
 TRAFFIC_TYPES = {
     "video_streaming": (15, 20),  # Continuous high bandwidth demand
