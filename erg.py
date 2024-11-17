@@ -131,6 +131,7 @@ def calculate_metrics(users):
 
     # Fairness Index (Jain's Index)
     allocated_list = [user.allocated_bandwidth for user in users]
+    # avg(x)^2 / avg(x^2)
     fairness_index = (sum(allocated_list) ** 2) / (NUM_USERS * sum(x ** 2 for x in allocated_list)) if sum(allocated_list) > 0 else 0
 
     # Average Latency: How many intervals on average it took for users to be served
