@@ -10,7 +10,7 @@ TRAFFIC_TYPES = {
     "voice_call": (1, 3)  # Constant low bandwidth demand
 }
 
-# Define User Equipment (UE) class
+# User Equipment (UE) class
 class UE:
     def __init__(self, ue_id, traffic_type):
         self.ue_id = ue_id
