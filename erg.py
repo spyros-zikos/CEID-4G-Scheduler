@@ -47,11 +47,6 @@ class UE:
         average_throughput = max(0.1, self.allocated_bandwidth)
         return self.channel_quality / average_throughput
 
-    def __repr__(self):
-        return (f"UE {self.ue_id} | Type: {self.traffic_type} | "
-                f"Demand: {self.traffic_demand:.2f} Mbps | "
-                f"Allocated: {self.allocated_bandwidth:.2f} Mbps | "
-                f"Remaining: {self.remaining_demand:.2f} Mbps")
 
 # Initialize UEs with different traffic types
 def create_users(num_users):
@@ -148,6 +143,24 @@ def calculate_metrics(users):
 
     return total_throughput, fairness_index, average_latency
 
+# Print simulation results and metrics
+def print_results_and_metrics(users, step_count, remaining_bandwidth, total_duration):
+    # Display Final Results
+    print("\nFinal Allocations:")
+    print("UE | Type            | Demand     | Allocated  | Remaining")
+    for user in users:
+        print(f"{str(user.ue_id).ljust(2)} | {user.traffic_type.ljust(15)} | {f'{user.traffic_demand:.2f}'.rjust(5)} Mbps | "
+                f"{f'{user.allocated_bandwidth:.2f}'.rjust(5)} Mbps | {f'{user.remaining_demand:.2f}'.rjust(5)} Mbps")
+
+    # Calculate and display metrics
+    total_throughput, fairness_index, average_latency = calculate_metrics(users)
+    print(f"\nTotal Throughput: {total_throughput:.2f} Mbps")
+    print(f"Fairness Index: {fairness_index:.2f}")
+    print(f"Average Latency: {average_latency:.2f} intervals")
+    print(f"Total Steps Taken: {step_count}")
+    print(f"Total Time Elapsed: {total_duration:.5f} seconds")
+    print(f"Remaining Bandwidth: {remaining_bandwidth:.2f} Mbps")
+
 # Simulate scheduling with timing and selection
 def run_simulation(mode="proportional_fair"):
     # Create a fresh set of users
@@ -155,45 +168,21 @@ def run_simulation(mode="proportional_fair"):
 
     # Display the initial environment
     print("\nInitial Environment (Before Allocation):")
+    print("UE | Type            | Demand     | Channel Quality")
     for user in users:
-        print(f"UE {user.ue_id} | Type: {user.traffic_type} | Demand: {user.traffic_demand:.2f} Mbps | Channel Quality: {user.channel_quality:.2f}")
+        print(f"{str(user.ue_id).ljust(2)} | {user.traffic_type.ljust(15)} | "
+              f"{f'{user.traffic_demand:.2f}'.rjust(5)} Mbps | {user.channel_quality:.2f}")
 
     if mode == "proportional_fair":
         print("\n--- Proportional Fair Scheduling ---")
         step_count, remaining_bandwidth, total_duration = proportional_fair_scheduler(users, TOTAL_BANDWIDTH)
-
-        # Display Final Results
-        print("\nFinal Allocations:")
-        for user in users:
-            print(f"UE {user.ue_id} | Type: {user.traffic_type} | Demand: {user.traffic_demand:.2f} Mbps | "
-                  f"Allocated: {user.allocated_bandwidth:.2f} Mbps | Remaining: {user.remaining_demand:.2f} Mbps")
-
-        # Calculate and display metrics
-        total_throughput, fairness_index, average_latency = calculate_metrics(users)
-        print(f"\nTotal Throughput: {total_throughput:.2f} Mbps")
-        print(f"Fairness Index: {fairness_index:.2f}")
-        print(f"Average Latency: {average_latency:.2f} intervals")
-        print(f"Total Steps Taken: {step_count}")
-        print(f"Total Time Elapsed: {total_duration:.5f} seconds")
-        print(f"Remaining Bandwidth: {remaining_bandwidth:.2f} Mbps")
+        print_results_and_metrics(users, step_count, remaining_bandwidth, total_duration)
 
     elif mode == "sequential_round_robin":
         print("\n--- Sequential Round-Robin Scheduling ---")
         step_count, remaining_bandwidth, total_duration = sequential_round_robin(users, TOTAL_BANDWIDTH, ALLOCATION_PER_STEP)
+        print_results_and_metrics(users, step_count, remaining_bandwidth, total_duration)
 
-        # Display Final Results
-        print("\nFinal Allocations:")
-        for user in users:
-            print(f"UE {user.ue_id} | Type: {user.traffic_type.ljust(16)} | Demand: {f'{user.traffic_demand:.2f}'.ljust(5)} Mbps | "
-                  f"Allocated: {f'{user.allocated_bandwidth:.2f}'.ljust(5)} Mbps | Remaining: {user.remaining_demand:.2f} Mbps")
-
-        # Calculate and display metrics
-        total_throughput, fairness_index, average_latency = calculate_metrics(users)
-        print(f"\nTotal Throughput: {total_throughput:.2f} Mbps")
-        print(f"Average Latency: {average_latency:.2f} intervals")
-        print(f"Total Steps Taken: {step_count}")
-        print(f"Total Time Elapsed: {total_duration:.5f} seconds")
-        print(f"Remaining Bandwidth: {remaining_bandwidth:.2f} Mbps")
 
 # Main entry point to run simulation based on command-line argument
 if __name__ == "__main__":
