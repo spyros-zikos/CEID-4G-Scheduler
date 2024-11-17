@@ -20,7 +20,7 @@ class UE:
         self.channel_quality = random.uniform(0.5, 1.5)  # Initial channel quality
         self.allocated_bandwidth = 0
         self.remaining_demand = self.traffic_demand
-        self.total_latency = 0  # Track latency in terms of how many intervals it took to meet demand
+        self.total_latency = 0  # Number of execution steps
 
     def generate_traffic_demand(self, traffic_type):
         min_demand, max_demand = TRAFFIC_TYPES[traffic_type]
