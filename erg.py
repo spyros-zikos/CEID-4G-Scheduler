@@ -1,6 +1,5 @@
-import random
-import time
-import argparse
+import random, time, sys
+
 
 NUM_USERS = 10  # Number of User Equipments (UEs)
 TOTAL_BANDWIDTH = 50  # in Mbps, total bandwidth available at the base station
@@ -182,11 +181,9 @@ def run_simulation(mode="proportional_fair"):
 
 # Main entry point to run simulation based on command-line argument
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run network scheduling simulation.")
-    parser.add_argument("mode", choices=["robin", "fair"], help="Choose scheduling mode: 'robin' for Round-Robin or 'fair' for Proportional Fair")
-    args = parser.parse_args()
-
-    if args.mode == "robin":
+    if sys.argv[1] == "robin":
         run_simulation("sequential_round_robin")
-    elif args.mode == "fair":
+    elif sys.argv[1] == "fair":
         run_simulation("proportional_fair")
+    else:
+        print("Choose scheduling mode: 'robin' for Round-Robin or 'fair' for Proportional Fair")
