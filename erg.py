@@ -4,7 +4,7 @@ import time
 import matplotlib.pyplot as plt
 
 # Parameters
-NUM_USERS = 15  # More users to show fairness benefits
+NUM_USERS = 20  # More users to show fairness benefits
 TOTAL_BANDWIDTH = 200  # in Mbps, total bandwidth available
 ALLOCATION_PER_STEP = 10  # Ensure fair distribution
 RADIUS = 200    # Larger radius to create more varied channel conditions
