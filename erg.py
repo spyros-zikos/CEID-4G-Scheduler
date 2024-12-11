@@ -33,17 +33,11 @@ class UE:
         self.average_rate = 0.1
 
     def calculate_initial_channel_quality(self):
-        base_quality = max(0.2, 1 / (1 + (self.distance / RADIUS)**2))
-        fade_factor = random.uniform(0.5, 1.5)
-        interference = random.uniform(0.8, 1.2)
-        return base_quality * fade_factor * interference
+        return random.uniform(0.2, 1.0)  # Random channel quality between 0.2 and 1.0
 
-    def update_channel_quality(self, time_step):
-        base_quality = max(0.2, 1 / (1 + (self.distance / RADIUS)**2))
-        fade_factor = random.uniform(0.5, 1.5)
-        interference = random.uniform(0.8, 1.2)
-        time_variation = math.sin(time_step * 0.1) * 0.1 + 1
-        self.channel_quality = base_quality * fade_factor * interference * time_variation
+    def update_channel_quality(self):
+        self.channel_quality = random.uniform(0.2, 1.0)  # Random channel quality between 0.2 and 1.0
+
 
     def generate_traffic_demand(self, traffic_type):
         min_demand, max_demand = TRAFFIC_TYPES[traffic_type]
@@ -95,7 +89,7 @@ def sequential_round_robin(users, total_bandwidth, allocation_per_step):
         
         # Update channel quality for all users
         for user in users:
-            user.update_channel_quality(time_step)
+            user.update_channel_quality()
         
         # Modified request generation
         max_requests = len(active_users)
@@ -120,9 +114,6 @@ def sequential_round_robin(users, total_bandwidth, allocation_per_step):
         allocations_this_step = 0
 
         for user in requesting_users:
-            if user.remaining_demand > total_bandwidth:
-                print(f"Skipping UE {user.ue_id}: Demand {user.remaining_demand:.2f} Mbps exceeds remaining bandwidth {total_bandwidth:.2f} Mbps")
-                continue
 
             # Consider channel quality in allocation
             allocation = min(allocation_per_step * user.channel_quality,
@@ -182,7 +173,7 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
         
         # Update channel qualities for all users
         for user in users:
-            user.update_channel_quality(time_step)
+            user.update_channel_quality()
         
         # Generate requests
         max_requests = len(active_users)
@@ -193,23 +184,10 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
         requesting_users = []
         potential_requesters = active_users.copy()
         
-        # Priority users
-        for user in potential_requesters.copy():
-            if (user.allocated_bandwidth == 0 or 
-                (user.channel_quality > 0.7 and user.remaining_demand > user.traffic_demand * 0.7)):
-                requesting_users.append(user)
-                potential_requesters.remove(user)
-                if len(requesting_users) >= num_requests:
-                    break
-                # Additional users based on conditions
         while len(requesting_users) < num_requests and potential_requesters:
             user = random.choice(potential_requesters)
+            requesting_users.append(user)
             potential_requesters.remove(user)
-            
-            request_probability = 0.3  # base probability
-                
-            if random.random() < request_probability:
-                requesting_users.append(user)
         
         if not requesting_users:
             time_step += 1
@@ -221,25 +199,15 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
         # Calculate PF metrics
         metrics = []
         for user in requesting_users:
-            # Set traffic priorities
-            traffic_priority = 1.0
-            if user.traffic_type == "video_streaming":
-                traffic_priority = 1.5
-            elif user.traffic_type == "web_browsing":
-                traffic_priority = 1.2
-            
-            # Calculate fairness factor
-            normalized_allocation = user.allocated_bandwidth / user.traffic_demand
-            fairness_factor = 1 / (normalized_allocation + 0.1)
             
             # Calculate achievable rate considering channel conditions
             achievable_rate = user.channel_quality * allocation_per_step
             
-            # Final PF metric
-            pf_metric = (achievable_rate * traffic_priority * fairness_factor) / \
-                       (max(user.average_rate, 0.1)**0.7)
+            # Final PF metric based on the formula: r_i(t) / R_i(t)
+            pf_metric = (achievable_rate / max(user.average_rate, 0.1))
             
             metrics.append((user, pf_metric))
+
 
         print("\nFairness Metrics for Requesting Users:")
         for u, metric in metrics:
@@ -252,11 +220,8 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
         allocations_this_step = 0
         remaining_step_bandwidth = total_bandwidth
 
-        # Allocate bandwidth based on metrics
+      #  # Allocate bandwidth based on metrics
         for user, metric in metrics:
-            if user.remaining_demand > remaining_step_bandwidth:
-                print(f"Skipping UE {user.ue_id}: Demand {user.remaining_demand:.2f} Mbps exceeds remaining bandwidth {remaining_step_bandwidth:.2f} Mbps")
-                continue
 
             # Calculate effective allocation considering channel quality
             effective_allocation = min(
