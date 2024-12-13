@@ -10,10 +10,11 @@ TOTAL_BANDWIDTH = 200  # in Mbps
 ALLOCATION_PER_STEP = 10
 RADIUS = 200    # Base station coverage radius
 TRAFFIC_TYPES = {
-    "video_streaming": (20, 30),  # Higher bandwidth for video
-    "web_browsing": (5, 15),    # Variable web traffic
-    "voice_call": (1, 2)        # Low constant bandwidth
+    "video_streaming": (3, 6),  # SD/low-HD streaming
+    "web_browsing": (0.5, 2),  # Light browsing
+    "voice_call": (0.1, 0.4)   # VoIP
 }
+
 
 # Global parameter for Proportional Fairness (β)
 BETA = 0.5  # Weight for averaging past and current rates
@@ -36,7 +37,7 @@ class UE:
         return random.uniform(0.2, 1.0)  # Random channel quality between 0.2 and 1.0
 
     def update_channel_quality(self):
-        self.channel_quality = max(0.2, min(1.0, self.channel_quality + random.uniform(-0.1, 0.1)))
+        self.channel_quality = max(0.2, min(1.0, self.channel_quality + random.uniform(-0.3, 0.3)))
 
     def generate_traffic_demand(self, traffic_type):
         min_demand, max_demand = TRAFFIC_TYPES[traffic_type]
@@ -114,19 +115,30 @@ def sequential_round_robin(users, total_bandwidth, allocation_per_step):
         remaining_step_bandwidth = total_bandwidth
         for user in requesting_users:
 
-            # Consider channel quality in allocation
-            allocation = min(allocation_per_step * user.channel_quality,
-                           user.remaining_demand,
-                           remaining_step_bandwidth)
-            
-            user.allocate_bandwidth(allocation)
-            remaining_step_bandwidth -= allocation
+            # Calculate raw bandwidth sent by BS
+            bandwidth_sent = min(
+                allocation_per_step,          # Max bandwidth per step
+                remaining_step_bandwidth,     # Remaining BS bandwidth
+                user.remaining_demand / user.channel_quality  # Scale by channel quality to avoid over-allocation
+            )
+
+            # Effective bandwidth received by the user
+            effective_allocation = bandwidth_sent * user.channel_quality
+
+            # Update BS remaining bandwidth
+            remaining_step_bandwidth -= bandwidth_sent
+
+            # Allocate bandwidth to the user
+            user.allocate_bandwidth(effective_allocation)
             step_count += 1
             allocations_this_step += 1
 
-            print(f"Step {step_count}: Allocated {allocation:.2f} Mbps to UE {user.ue_id}")
+            print(f"\nStep {step_count}: Allocated {effective_allocation:.2f} Mbps to UE {user.ue_id}")
             print(f"UE {user.ue_id}: Remaining Demand = {user.remaining_demand:.2f} Mbps")
-            print(f"Total Bandwidth Remaining = {remaining_step_bandwidth:.2f} Mbps\n")
+            print(f"Total Bandwidth Remaining = {remaining_step_bandwidth:.2f} Mbps")
+            print(f"UE {user.ue_id} - Bandwidth Sent by BS: {bandwidth_sent:.2f} Mbps, "
+                    f"Effective Allocation: {effective_allocation:.2f} Mbps, "
+                    f"Channel Quality: {user.channel_quality:.2f}")
 
             if remaining_step_bandwidth <= 0:
                 break
@@ -218,21 +230,30 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
         # Allocate bandwidth based on metrics
         for user, metric in metrics:
 
-            # Calculate effective allocation considering channel quality
-            effective_allocation = min(
-                allocation_per_step * user.channel_quality,
-                remaining_step_bandwidth,
-                user.remaining_demand
+            # Calculate raw bandwidth sent by BS
+            bandwidth_sent = min(
+                allocation_per_step,          # Max bandwidth per step
+                remaining_step_bandwidth,     # Remaining BS bandwidth
+                user.remaining_demand / user.channel_quality  # Scale by channel quality to avoid over-allocation
             )
 
+            # Effective bandwidth received by the user
+            effective_allocation = bandwidth_sent * user.channel_quality
+
+            # Update BS remaining bandwidth
+            remaining_step_bandwidth -= bandwidth_sent
+
+            # Allocate bandwidth to the user
             user.allocate_bandwidth(effective_allocation)
-            remaining_step_bandwidth -= effective_allocation
             step_count += 1
             allocations_this_step += 1
 
             print(f"\nStep {step_count}: Allocated {effective_allocation:.2f} Mbps to UE {user.ue_id}")
             print(f"UE {user.ue_id}: Remaining Demand = {user.remaining_demand:.2f} Mbps")
-            print(f"Total Bandwidth Remaining = {remaining_step_bandwidth:.2f} Mbps\n")
+            print(f"Total Bandwidth Remaining = {remaining_step_bandwidth:.2f} Mbps")
+            print(f"UE {user.ue_id} - Bandwidth Sent by BS: {bandwidth_sent:.2f} Mbps, "
+                    f"Effective Allocation: {effective_allocation:.2f} Mbps, "
+                    f"Channel Quality: {user.channel_quality:.2f}")
 
             if remaining_step_bandwidth <= 0:
                 break
@@ -321,14 +342,15 @@ def run_simulation():
    
    if scenario == "1":
        # High Mobility Scenario
-       NUM_USERS = 3000        
+       NUM_USERS = 1500        
        RADIUS = 250         
        TOTAL_BANDWIDTH = 300  
        TRAFFIC_TYPES = {
-           "video_streaming": (25, 35),  
-           "web_browsing": (8, 18),      
-           "voice_call": (1, 2)          
-       }
+            "video_streaming": (4, 8),  # HD streaming
+            "web_browsing": (1, 2),    # Light web activity
+            "voice_call": (0.1, 0.5)   # VoIP
+        }
+          
        print("\nRunning High Mobility Scenario:")
        print("- 50 users with varying channel conditions")
        print("- Large coverage area (250m)")
@@ -336,14 +358,15 @@ def run_simulation():
 
    elif scenario == "2":
        # Mixed Traffic Scenario
-       NUM_USERS = 2000      
+       NUM_USERS = 1000      
        RADIUS = 180         
        TOTAL_BANDWIDTH = 200 
        TRAFFIC_TYPES = {
-           "video_streaming": (30, 40),  
-           "web_browsing": (10, 25),     
-           "voice_call": (1, 3)         
-       }
+            "video_streaming": (5, 12),  # HD and some Ultra HD
+            "web_browsing": (1, 4),     # Moderate browsing
+            "voice_call": (0.3, 1)      # VoIP and video calls
+        }
+
        print("\nRunning Mixed Traffic Scenario:")
        print("- 30 users with diverse traffic patterns")
        print("- Medium coverage area (180m)")
@@ -351,7 +374,7 @@ def run_simulation():
 
    elif scenario == "3":
        # Cell Edge Scenario
-       NUM_USERS = 1000      
+       NUM_USERS = 500      
        RADIUS = 200        
        TOTAL_BANDWIDTH = 100
        print("\nRunning Cell Edge Scenario:")
@@ -450,102 +473,6 @@ def run_simulation():
        save_as=f"latency_scenario_{scenario}.png"
    )
 
-   # Compare algorithms
-   compare_algorithms(
-       round_robin=(
-           step_count_robin,
-           time_taken_robin,
-           not_allocated_robin,
-           unallocated_bandwidth_robin,
-           fairness_robin,
-           total_throughput_robin,
-           average_latency_robin
-       ),
-       proportional_fair=(
-           step_count_fair,
-           time_taken_fair,
-           not_allocated_fair,
-           unallocated_bandwidth_fair,
-           fairness_fair,
-           total_throughput_fair,
-           average_latency_fair
-       ),
-       scenario=scenario
-   )
-
-def compare_algorithms(round_robin, proportional_fair, scenario):
-   rr_steps, rr_time, rr_not_allocated, rr_unallocated, rr_fairness, rr_throughput, rr_latency = round_robin
-   pf_steps, pf_time, pf_not_allocated, pf_unallocated, pf_fairness, pf_throughput, pf_latency = proportional_fair
-
-   print(f"\n--- Algorithm Comparison for Scenario {scenario} ---")
-   
-   # Print metrics for each algorithm
-   print("\nRound-Robin Metrics:")
-   print(f"- Steps: {rr_steps}")
-   print(f"- Execution Time: {rr_time:.5f}s")
-   print(f"- Users Not Fully Allocated: {rr_not_allocated}")
-   print(f"- Unallocated Bandwidth: {rr_unallocated:.2f} Mbps")
-   print(f"- Fairness Index: {rr_fairness:.5f}")
-   print(f"- Total Throughput: {rr_throughput:.2f} Mbps")
-   print(f"- Average Latency: {rr_latency:.2f}")
-
-   print("\nProportional Fair Metrics:")
-   print(f"- Steps: {pf_steps}")
-   print(f"- Execution Time: {pf_time:.5f}s")
-   print(f"- Users Not Fully Allocated: {pf_not_allocated}")
-   print(f"- Unallocated Bandwidth: {pf_unallocated:.2f} Mbps")
-   print(f"- Fairness Index: {pf_fairness:.5f}")
-   print(f"- Total Throughput: {pf_throughput:.2f} Mbps")
-   print(f"- Average Latency: {pf_latency:.2f}")
-
-   # Calculate improvements
-   throughput_improvement = ((pf_throughput - rr_throughput) / rr_throughput * 100) if rr_throughput > 0 else float('inf')
-   fairness_improvement = ((pf_fairness - rr_fairness) / rr_fairness * 100) if rr_fairness > 0 else float('inf')
-   latency_improvement = ((rr_latency - pf_latency) / rr_latency * 100) if rr_latency > 0 else float('inf')
-
-   print(f"\nPerformance Improvements with Proportional Fair:")
-   print(f"- Throughput Improvement: {throughput_improvement:.1f}%")
-   print(f"- Fairness Improvement: {fairness_improvement:.1f}%")
-   print(f"- Latency Reduction: {latency_improvement:.1f}%")
-
-   # Scenario-specific analysis
-   if scenario == "1":
-       print("\nHigh Mobility Scenario Analysis:")
-       print("- PF scheduler better adapts to varying channel conditions")
-       if throughput_improvement > 0:
-           print("- Successfully achieves higher throughput by exploiting good channel conditions")
-       if fairness_improvement > 0:
-           print("- Maintains fairness despite channel variations")
-
-   elif scenario == "2":
-       print("\nMixed Traffic Scenario Analysis:")
-       print("- PF scheduler handles diverse traffic requirements")
-       if throughput_improvement > 0:
-           print("- Better serves high-bandwidth users while maintaining fairness")
-       if latency_improvement > 0:
-           print("- Reduces average latency through smarter resource allocation")
-
-   elif scenario == "3":
-       print("\nCell Edge Scenario Analysis:")
-       print("- PF scheduler manages poor channel conditions")
-       if fairness_improvement > 0:
-           print("- Achieves better fairness for cell edge users")
-       if throughput_improvement > 0:
-           print("- Maintains throughput despite challenging conditions")
-
-   print("\nOverall Winner:")
-   metrics = {
-       "Steps": "Proportional Fair" if pf_steps < rr_steps else "Round-Robin",
-       "Execution Speed": "Proportional Fair" if pf_time < rr_time else "Round-Robin",
-       "Resource Allocation": "Proportional Fair" if pf_not_allocated < rr_not_allocated else "Round-Robin",
-       "Bandwidth Utilization": "Proportional Fair" if pf_unallocated < rr_unallocated else "Round-Robin",
-       "Throughput": "Proportional Fair" if pf_throughput > rr_throughput else "Round-Robin",
-       "Latency": "Proportional Fair" if pf_latency < rr_latency else "Round-Robin",
-       "Fairness": "Proportional Fair" if pf_fairness > rr_fairness else "Round-Robin"
-   }
-
-   for metric, winner in metrics.items():
-       print(f"- {metric}: {winner}")
 if __name__ == "__main__":
     random.seed(time.time())
     run_simulation()
