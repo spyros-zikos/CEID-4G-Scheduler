@@ -36,8 +36,7 @@ class UE:
         return random.uniform(0.2, 1.0)  # Random channel quality between 0.2 and 1.0
 
     def update_channel_quality(self):
-        self.channel_quality = random.uniform(0.2, 1.0)  # Random channel quality between 0.2 and 1.0
-
+        self.channel_quality = max(0.2, min(1.0, self.channel_quality + random.uniform(-0.1, 0.1)))
 
     def generate_traffic_demand(self, traffic_type):
         min_demand, max_demand = TRAFFIC_TYPES[traffic_type]
@@ -93,8 +92,8 @@ def sequential_round_robin(users, total_bandwidth, allocation_per_step):
         
         # Modified request generation
         max_requests = len(active_users)
-        min_requests = min(2, len(active_users))  # At least 2 if available
-        num_requests = random.randint(min_requests, max(min_requests, max_requests // 3))
+        min_requests = min(int(NUM_USERS/2), len(active_users))  # At least 2 if available
+        num_requests = random.randint(min_requests, max(min_requests, max_requests // 2))
         
         # Select random users to request bandwidth
         requesting_users = []
@@ -112,24 +111,24 @@ def sequential_round_robin(users, total_bandwidth, allocation_per_step):
         print(f"Users requesting bandwidth: {[user.ue_id for user in requesting_users]}")
 
         allocations_this_step = 0
-
+        remaining_step_bandwidth = total_bandwidth
         for user in requesting_users:
 
             # Consider channel quality in allocation
             allocation = min(allocation_per_step * user.channel_quality,
                            user.remaining_demand,
-                           total_bandwidth)
+                           remaining_step_bandwidth)
             
             user.allocate_bandwidth(allocation)
-            total_bandwidth -= allocation
+            remaining_step_bandwidth -= allocation
             step_count += 1
             allocations_this_step += 1
 
             print(f"Step {step_count}: Allocated {allocation:.2f} Mbps to UE {user.ue_id}")
             print(f"UE {user.ue_id}: Remaining Demand = {user.remaining_demand:.2f} Mbps")
-            print(f"Total Bandwidth Remaining = {total_bandwidth:.2f} Mbps\n")
+            print(f"Total Bandwidth Remaining = {remaining_step_bandwidth:.2f} Mbps\n")
 
-            if total_bandwidth <= 0:
+            if remaining_step_bandwidth <= 0:
                 break
 
         # Collect metrics
@@ -177,8 +176,8 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
         
         # Generate requests
         max_requests = len(active_users)
-        min_requests = min(2, len(active_users))
-        num_requests = random.randint(min_requests, max(min_requests, max_requests // 3))
+        min_requests = min(int(NUM_USERS/2), len(active_users))
+        num_requests = random.randint(min_requests, max(min_requests, max_requests // 2))
         
         # Select users based on conditions
         requesting_users = []
@@ -188,10 +187,6 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
             user = random.choice(potential_requesters)
             requesting_users.append(user)
             potential_requesters.remove(user)
-        
-        if not requesting_users:
-            time_step += 1
-            continue
         
         print(f"\n--- Time Step {time_step} ---")
         print(f"Users requesting bandwidth: {[user.ue_id for user in requesting_users]}")
@@ -220,7 +215,7 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
         allocations_this_step = 0
         remaining_step_bandwidth = total_bandwidth
 
-      #  # Allocate bandwidth based on metrics
+        # Allocate bandwidth based on metrics
         for user, metric in metrics:
 
             # Calculate effective allocation considering channel quality
@@ -326,9 +321,9 @@ def run_simulation():
    
    if scenario == "1":
        # High Mobility Scenario
-       NUM_USERS = 50        
+       NUM_USERS = 3000        
        RADIUS = 250         
-       TOTAL_BANDWIDTH = 500  
+       TOTAL_BANDWIDTH = 300  
        TRAFFIC_TYPES = {
            "video_streaming": (25, 35),  
            "web_browsing": (8, 18),      
@@ -341,9 +336,9 @@ def run_simulation():
 
    elif scenario == "2":
        # Mixed Traffic Scenario
-       NUM_USERS = 30      
+       NUM_USERS = 2000      
        RADIUS = 180         
-       TOTAL_BANDWIDTH = 400 
+       TOTAL_BANDWIDTH = 200 
        TRAFFIC_TYPES = {
            "video_streaming": (30, 40),  
            "web_browsing": (10, 25),     
@@ -356,12 +351,12 @@ def run_simulation():
 
    elif scenario == "3":
        # Cell Edge Scenario
-       NUM_USERS = 20      
+       NUM_USERS = 1000      
        RADIUS = 200        
-       TOTAL_BANDWIDTH = 300
+       TOTAL_BANDWIDTH = 100
        print("\nRunning Cell Edge Scenario:")
        print("- 20 users at cell edge")
-       print("- Challenging channel conditions")
+       print("- C=hallenging channel conditions")
        print("- Lower bandwidth (300 Mbps)")
 
    ALLOCATION_PER_STEP = 10
@@ -552,5 +547,5 @@ def compare_algorithms(round_robin, proportional_fair, scenario):
    for metric, winner in metrics.items():
        print(f"- {metric}: {winner}")
 if __name__ == "__main__":
-    random.seed(42)  # Για αναπαραγώγιμα αποτελέσματα
+    random.seed(time.time())
     run_simulation()
