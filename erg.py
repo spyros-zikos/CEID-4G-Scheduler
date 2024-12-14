@@ -77,7 +77,6 @@ def create_users(num_users):
 def sequential_round_robin(users, total_bandwidth, allocation_per_step):
     step_count = 0
     time_step = 1
-    start_time = time.time()
 
     # Metric trackers
     fairness_over_time = []
@@ -154,16 +153,8 @@ def sequential_round_robin(users, total_bandwidth, allocation_per_step):
 
         time_step += 1
 
-    unallocated_bandwidth = sum(user.remaining_demand for user in users)
-    fairness = calculate_fairness(users)
-    end_time = time.time()
-    total_time = end_time - start_time
 
     return (
-        step_count, 
-        total_time, 
-        unallocated_bandwidth, 
-        fairness,
         fairness_over_time, 
         throughput_over_time, 
         latency_over_time
@@ -172,7 +163,6 @@ def sequential_round_robin(users, total_bandwidth, allocation_per_step):
 def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
     step_count = 0
     time_step = 1
-    start_time = time.perf_counter()
 
     # Metric trackers
     fairness_over_time = []
@@ -226,7 +216,7 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
 
         allocations_this_step = 0
         remaining_step_bandwidth = total_bandwidth
-
+        step_count=0
         # Allocate bandwidth based on metrics
         for user, metric in metrics:
 
@@ -269,16 +259,7 @@ def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
 
         time_step += 1
 
-    unallocated_bandwidth = sum(user.remaining_demand for user in users)
-    fairness = calculate_fairness(users)
-    end_time = time.perf_counter()
-    time_taken = end_time - start_time
-
     return (
-        step_count,
-        time_taken,
-        unallocated_bandwidth,
-        fairness,
         fairness_over_time,
         throughput_over_time,
         latency_over_time
@@ -411,20 +392,11 @@ def run_simulation():
    # Run Round-Robin
    print("\n=== Running Sequential Round-Robin Scheduler ===")
    (
-       step_count_robin,
-       time_taken_robin,
-       unallocated_bandwidth_robin,
-       fairness_robin,
        fairness_over_time_rr,
        throughput_over_time_rr,
        latency_over_time_rr,
    ) = sequential_round_robin(users, TOTAL_BANDWIDTH, ALLOCATION_PER_STEP)
 
-   # Calculate Round-Robin metrics
-   not_allocated_robin = len([user for user in users if user.remaining_demand > 0])
-   total_throughput_robin = calculate_total_throughput(users)
-   average_latency_robin = calculate_average_latency(users)
-   print_user_status(users, "Final Status After Round-Robin")
 
    # Reset users for Proportional Fair
    for user in users:
@@ -433,20 +405,10 @@ def run_simulation():
    # Run Proportional Fair
    print("\n=== Running Proportional Fair Scheduler ===")
    (
-       step_count_fair,
-       time_taken_fair,
-       unallocated_bandwidth_fair,
-       fairness_fair,
        fairness_over_time_pf,
        throughput_over_time_pf,
        latency_over_time_pf,
    ) = proportional_fair_scheduler(users, TOTAL_BANDWIDTH, ALLOCATION_PER_STEP)
-
-   # Calculate Proportional Fair metrics
-   not_allocated_fair = len([user for user in users if user.remaining_demand > 0])
-   total_throughput_fair = calculate_total_throughput(users)
-   average_latency_fair = calculate_average_latency(users)
-   print_user_status(users, "Final Status After Proportional Fair")
 
    # Plot metrics
    plot_metrics(
