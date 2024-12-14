@@ -334,9 +334,9 @@ def run_simulation():
 
    # Scenario selection 
    print("\nSelect test scenario:")
-   print("1. High Mobility Scenario (rapidly changing channel conditions)")
-   print("2. Mixed Traffic Scenario (diverse user demands)")
-   print("3. Cell Edge Scenario (poor channel conditions)")
+   print("1. 1500 users - 300 Mbps")
+   print("2. 100 users - 200 Mbps")
+   print("3. 500 users - 100 Mbps")
    
    scenario = input("Enter scenario number (default=1): ") or "1"
    
@@ -352,9 +352,9 @@ def run_simulation():
         }
           
        print("\nRunning High Mobility Scenario:")
-       print("- 50 users with varying channel conditions")
-       print("- Large coverage area (250m)")
-       print("- Higher total bandwidth (500 Mbps)")
+       print("- 1500 users with varying channel conditions")
+       print("- Coverage area (250m)")
+       print("- Bandwidth (300 Mbps)")
 
    elif scenario == "2":
        # Mixed Traffic Scenario
@@ -367,20 +367,20 @@ def run_simulation():
             "voice_call": (0.3, 1)      # VoIP and video calls
         }
 
-       print("\nRunning Mixed Traffic Scenario:")
-       print("- 30 users with diverse traffic patterns")
-       print("- Medium coverage area (180m)")
-       print("- Medium bandwidth (400 Mbps)")
+       print("\nRunning Scenario 3:")
+       print("- 1000 users with diverse traffic patterns")
+       print("- Coverage area (180m)")
+       print("- Bandwidth (200 Mbps)")
 
    elif scenario == "3":
        # Cell Edge Scenario
        NUM_USERS = 500      
-       RADIUS = 200        
+       RADIUS = 150        
        TOTAL_BANDWIDTH = 100
-       print("\nRunning Cell Edge Scenario:")
-       print("- 20 users at cell edge")
-       print("- C=hallenging channel conditions")
-       print("- Lower bandwidth (300 Mbps)")
+       print("\nRunning Scenario 3:")
+       print("- 500 users at cell edge")
+       print("- Coverage area (150m)")
+       print("- Bandwidth (100 Mbps)")
 
    ALLOCATION_PER_STEP = 10
    
@@ -474,5 +474,5 @@ def run_simulation():
    )
 
 if __name__ == "__main__":
-    random.seed(time.time())
+    random.seed(3)
     run_simulation()
