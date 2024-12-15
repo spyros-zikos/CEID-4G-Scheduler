@@ -1,37 +1,22 @@
 import numpy as np
 import random
-import time
-import math
 import matplotlib.pyplot as plt
 
-# Parameters
-NUM_USERS = 20
-TOTAL_BANDWIDTH = 200  # in Mbps
+
 ALLOCATION_PER_STEP = 10
-RADIUS = 200    # Base station coverage radius
-TRAFFIC_TYPES = {
-    "video_streaming": (3, 6),  # SD/low-HD streaming
-    "web_browsing": (0.5, 2),  # Light browsing
-    "voice_call": (0.1, 0.4)   # VoIP
-}
-
-
-# Global parameter for Proportional Fairness (β)
 BETA = 0.5  # Weight for averaging past and current rates
-
+EXPERIMENTS=50
 class UE:
-    def __init__(self, ue_id, traffic_type, position, distance):
+    def __init__(self, ue_id, traffic_type):
         self.ue_id = ue_id
         self.traffic_type = traffic_type
-        self.position = position  # (x, y) position
-        self.distance = distance  # Distance from the BS
         self.channel_quality = self.calculate_initial_channel_quality()
         self.traffic_demand = self.generate_traffic_demand(traffic_type)
         self.allocated_bandwidth = 0
         self.remaining_demand = self.traffic_demand
         self.total_latency = 0
         self.instantaneous_rate = 0
-        self.average_rate = 0.1
+        self.average_rate = 0
 
     def calculate_initial_channel_quality(self):
         return random.uniform(0.2, 1.0)  # Random channel quality between 0.2 and 1.0
@@ -60,210 +45,168 @@ class UE:
         self.remaining_demand = self.traffic_demand
         self.total_latency = 0
         self.instantaneous_rate = 0
-        self.average_rate = 0.1
+        self.average_rate = 0
 
 def create_users(num_users):
     users = []
     for i in range(num_users):
-        theta = random.uniform(0, 2 * np.pi)
-        r = random.uniform(0, RADIUS)
-        x = r * np.cos(theta)
-        y = r * np.sin(theta)
-        distance = np.sqrt(x**2 + y**2)
         traffic_type = random.choice(list(TRAFFIC_TYPES.keys()))
-        users.append(UE(i, traffic_type, (x, y), distance))
+        users.append(UE(i, traffic_type))
     return users
 
 def sequential_round_robin(users, total_bandwidth, allocation_per_step):
-    step_count = 0
-    time_step = 1
+    experiment = 1
 
     # Metric trackers
     fairness_over_time = []
     throughput_over_time = []
     latency_over_time = []
 
-    while any(user.remaining_demand > 0 for user in users) and total_bandwidth > 0:
-        active_users = [user for user in users if user.remaining_demand > 0]
-        
-        # Update channel quality for all users
+    while experiment <= EXPERIMENTS:
+        # Reset user demands and metrics at the start of each time step
         for user in users:
-            user.update_channel_quality()
-        
-        # Modified request generation
-        max_requests = len(active_users)
-        min_requests = min(int(NUM_USERS/2), len(active_users))  # At least 2 if available
-        num_requests = random.randint(min_requests, max(min_requests, max_requests // 2))
-        
-        # Select random users to request bandwidth
-        requesting_users = []
-        potential_requesters = active_users.copy()
-        
-        while len(requesting_users) < num_requests and potential_requesters:
-            user = random.choice(potential_requesters)
-            requesting_users.append(user)
-            potential_requesters.remove(user)
-            
-        # Sort by user ID to maintain round-robin order
-        requesting_users = sorted(requesting_users, key=lambda u: u.ue_id)
+            user.reset()
 
-        print(f"\n--- Time Step {time_step} ---")
+        step_count = 0  # Reset step count for the current time step
+        num_requests = random.randint(int(NUM_USERS / 2), int(NUM_USERS))  # Number of active users
+        requesting_users = random.sample(users, num_requests)  # Select random users for this time step
+        requesting_users.sort(key=lambda u: u.ue_id)  # Ensure round-robin order by user ID
+
+        print(f"\n--- Experiment {experiment} ---")
         print(f"Users requesting bandwidth: {[user.ue_id for user in requesting_users]}")
 
-        allocations_this_step = 0
-        remaining_step_bandwidth = total_bandwidth
-        for user in requesting_users:
+        remaining_bandwidth = total_bandwidth  # Reset total bandwidth for this time step
+        i = 0  # Index to cycle through requesting users in round-robin fashion
 
-            # Calculate raw bandwidth sent by BS
-            bandwidth_sent = min(
-                allocation_per_step,          # Max bandwidth per step
-                remaining_step_bandwidth,     # Remaining BS bandwidth
-                user.remaining_demand / user.channel_quality  # Scale by channel quality to avoid over-allocation
-            )
+        # Bandwidth allocation loop
+        while remaining_bandwidth > 0 and any(user.remaining_demand > 0 for user in requesting_users):
+            user = requesting_users[i % len(requesting_users)]  # Cycle through users in round-robin order
 
-            # Effective bandwidth received by the user
-            effective_allocation = bandwidth_sent * user.channel_quality
+            if user.remaining_demand > 0:
+                # Calculate the bandwidth sent and effective allocation
+                bandwidth_sent = min(
+                    allocation_per_step,
+                    remaining_bandwidth,
+                    user.remaining_demand / user.channel_quality
+                )
+                effective_allocation = bandwidth_sent * user.channel_quality
+                remaining_bandwidth -= bandwidth_sent  # Update remaining bandwidth
+                user.allocate_bandwidth(effective_allocation)  # Allocate bandwidth to the user
+                step_count += 1  # Increment step count for each valid allocation
 
-            # Update BS remaining bandwidth
-            remaining_step_bandwidth -= bandwidth_sent
+                # Debugging output
+                print(f"\nStep {step_count}: Allocated {effective_allocation:.2f} Mbps to UE {user.ue_id}")
+                print(f"UE {user.ue_id}: Remaining Demand = {user.remaining_demand:.2f} Mbps")
+                print(f"Total Bandwidth Remaining = {remaining_bandwidth:.2f} Mbps")
+                print(f"UE {user.ue_id} - Bandwidth Sent by BS: {bandwidth_sent:.2f} Mbps, "
+                      f"Effective Allocation: {effective_allocation:.2f} Mbps, "
+                      f"Channel Quality: {user.channel_quality:.2f}")
 
-            # Allocate bandwidth to the user
-            user.allocate_bandwidth(effective_allocation)
-            step_count += 1
-            allocations_this_step += 1
+            i += 1  # Move to the next user in round-robin order
 
-            print(f"\nStep {step_count}: Allocated {effective_allocation:.2f} Mbps to UE {user.ue_id}")
-            print(f"UE {user.ue_id}: Remaining Demand = {user.remaining_demand:.2f} Mbps")
-            print(f"Total Bandwidth Remaining = {remaining_step_bandwidth:.2f} Mbps")
-            print(f"UE {user.ue_id} - Bandwidth Sent by BS: {bandwidth_sent:.2f} Mbps, "
-                    f"Effective Allocation: {effective_allocation:.2f} Mbps, "
-                    f"Channel Quality: {user.channel_quality:.2f}")
+        # Collect metrics from the requesting users
+        fairness_over_time.append(calculate_fairness(requesting_users))  # Calculate fairness for this time step
+        throughput_over_time.append(calculate_total_throughput(requesting_users))  # Calculate throughput
+        latency_over_time.append(calculate_average_latency(requesting_users))  # Calculate average latency
 
-            if remaining_step_bandwidth <= 0:
-                break
+        # Debugging output for metrics
+        print("\nMetrics for Time Step:")
+        print(f"Fairness Index: {fairness_over_time[-1]:.2f}")
+        print(f"Total Throughput: {throughput_over_time[-1]:.2f} Mbps")
+        print(f"Average Latency: {latency_over_time[-1]:.2f} time steps")
 
-        # Collect metrics
-        fairness_over_time.append(calculate_fairness(users))
-        throughput_over_time.append(calculate_total_throughput(users))
-        latency_over_time.append(calculate_average_latency(users))
+        # Move to the next time step
+        experiment += 1
 
-        if allocations_this_step == 0:
-            print("No allocations possible. Ending Round-Robin.")
-            break
+    # Final metrics output
+    print("\nFinal Metrics After All Time Steps:")
+    print(f"Fairness Over Time: {fairness_over_time}")
+    print(f"Throughput Over Time: {throughput_over_time}")
+    print(f"Latency Over Time: {latency_over_time}")
 
-        time_step += 1
+    return fairness_over_time, throughput_over_time, latency_over_time
 
-
-    return (
-        fairness_over_time, 
-        throughput_over_time, 
-        latency_over_time
-    )
 
 def proportional_fair_scheduler(users, total_bandwidth, allocation_per_step):
-    step_count = 0
-    time_step = 1
+    experiment = 1
 
     # Metric trackers
     fairness_over_time = []
     throughput_over_time = []
     latency_over_time = []
-    
-    while any(user.remaining_demand > 0 for user in users) and total_bandwidth > 0:
-        active_users = [user for user in users if user.remaining_demand > 0]
-        
+
+    while experiment <= EXPERIMENTS:
+        # Reset remaining demand for each user at the start of each time step
+        for user in users:
+            user.reset()
+
+        step_count = 0  # Reset step count for this time step
+
         # Update channel qualities for all users
         for user in users:
             user.update_channel_quality()
-        
-        # Generate requests
-        max_requests = len(active_users)
-        min_requests = min(int(NUM_USERS/2), len(active_users))
-        num_requests = random.randint(min_requests, max(min_requests, max_requests // 2))
-        
-        # Select users based on conditions
-        requesting_users = []
-        potential_requesters = active_users.copy()
-        
-        while len(requesting_users) < num_requests and potential_requesters:
-            user = random.choice(potential_requesters)
-            requesting_users.append(user)
-            potential_requesters.remove(user)
-        
-        print(f"\n--- Time Step {time_step} ---")
+
+        # Randomly select requesting users
+        num_requests = random.randint(int(NUM_USERS / 2), int(NUM_USERS))
+        requesting_users = random.sample(users, num_requests)
+
+        print(f"\n--- Experiment {experiment} ---")
         print(f"Users requesting bandwidth: {[user.ue_id for user in requesting_users]}")
 
         # Calculate PF metrics
-        metrics = []
-        for user in requesting_users:
-            
-            # Calculate achievable rate considering channel conditions
-            achievable_rate = user.channel_quality * allocation_per_step
-            
-            # Final PF metric based on the formula: r_i(t) / R_i(t)
-            pf_metric = (achievable_rate / max(user.average_rate, 0.1))
-            
-            metrics.append((user, pf_metric))
-
-
-        print("\nFairness Metrics for Requesting Users:")
-        for u, metric in metrics:
-            print(f"UE {u.ue_id} - PF Metric: {metric:.2f}, Channel Quality: {u.channel_quality:.2f}, "
-                  f"Average Rate: {u.average_rate:.2f}, Remaining: {u.remaining_demand:.2f} Mbps")
-
-        # Sort by PF metric
+        metrics = [
+            (user, (user.channel_quality * allocation_per_step) / max(user.average_rate, 0.1))
+            for user in requesting_users
+        ]
         metrics.sort(key=lambda x: x[1], reverse=True)
 
-        allocations_this_step = 0
-        remaining_step_bandwidth = total_bandwidth
-        step_count=0
-        # Allocate bandwidth based on metrics
-        for user, metric in metrics:
+        if not metrics:
+            print("No users with remaining demand.")
+            break
 
-            # Calculate raw bandwidth sent by BS
+        # Bandwidth allocation loop
+        remaining_experiment_bandwidth = total_bandwidth
+        i = 0
+
+        while remaining_experiment_bandwidth > 0 and any(user.remaining_demand > 0 for user, _ in metrics):
+            user = metrics[i % len(metrics)][0]  # Cycle through sorted metrics
+
+            if user.remaining_demand <= 0:
+                i += 1  # Skip users with no demand
+                continue
+
+            # Calculate bandwidth allocation
             bandwidth_sent = min(
-                allocation_per_step,          # Max bandwidth per step
-                remaining_step_bandwidth,     # Remaining BS bandwidth
-                user.remaining_demand / user.channel_quality  # Scale by channel quality to avoid over-allocation
+                allocation_per_step,
+                remaining_experiment_bandwidth,
+                user.remaining_demand / user.channel_quality
             )
-
-            # Effective bandwidth received by the user
             effective_allocation = bandwidth_sent * user.channel_quality
-
-            # Update BS remaining bandwidth
-            remaining_step_bandwidth -= bandwidth_sent
-
-            # Allocate bandwidth to the user
+            remaining_experiment_bandwidth -= bandwidth_sent
             user.allocate_bandwidth(effective_allocation)
             step_count += 1
-            allocations_this_step += 1
 
             print(f"\nStep {step_count}: Allocated {effective_allocation:.2f} Mbps to UE {user.ue_id}")
             print(f"UE {user.ue_id}: Remaining Demand = {user.remaining_demand:.2f} Mbps")
-            print(f"Total Bandwidth Remaining = {remaining_step_bandwidth:.2f} Mbps")
-            print(f"UE {user.ue_id} - Bandwidth Sent by BS: {bandwidth_sent:.2f} Mbps, "
-                    f"Effective Allocation: {effective_allocation:.2f} Mbps, "
-                    f"Channel Quality: {user.channel_quality:.2f}")
+            print(f"Total Bandwidth Remaining = {remaining_experiment_bandwidth:.2f} Mbps")
 
-            if remaining_step_bandwidth <= 0:
-                break
+            i += 1
 
         # Collect metrics
-        fairness_over_time.append(calculate_fairness(users))
-        throughput_over_time.append(calculate_total_throughput(users))
-        latency_over_time.append(calculate_average_latency(users))
+        users_in_metrics = [user for user, _ in metrics]
+        fairness_over_time.append(calculate_fairness(users_in_metrics))
+        throughput_over_time.append(calculate_total_throughput(users_in_metrics))
+        latency_over_time.append(calculate_average_latency(users_in_metrics))
 
-        if allocations_this_step == 0:
-            print("No allocations possible. Ending Proportional Fair Scheduling.")
-            break
-
-        time_step += 1
+        experiment += 1
 
     return (
         fairness_over_time,
         throughput_over_time,
         latency_over_time
     )
+
+
     
 def calculate_total_throughput(users):
     return sum(user.allocated_bandwidth for user in users)
@@ -311,129 +254,112 @@ def plot_metrics(metrics, labels, title, ylabel, save_as=None):
     plt.show()
 
 def run_simulation():
-   global NUM_USERS, TOTAL_BANDWIDTH, ALLOCATION_PER_STEP, RADIUS, TRAFFIC_TYPES
+    global NUM_USERS, TOTAL_BANDWIDTH, ALLOCATION_PER_STEP, TRAFFIC_TYPES
 
-   # Scenario selection 
-   print("\nSelect test scenario:")
-   print("1. 1500 users - 300 Mbps")
-   print("2. 100 users - 200 Mbps")
-   print("3. 500 users - 100 Mbps")
-   
-   scenario = input("Enter scenario number (default=1): ") or "1"
-   
-   if scenario == "1":
-       # High Mobility Scenario
-       NUM_USERS = 1500        
-       RADIUS = 250         
-       TOTAL_BANDWIDTH = 300  
-       TRAFFIC_TYPES = {
-            "video_streaming": (4, 8),  # HD streaming
-            "web_browsing": (1, 2),    # Light web activity
-            "voice_call": (0.1, 0.5)   # VoIP
-        }
-          
-       print("\nRunning High Mobility Scenario:")
-       print("- 1500 users with varying channel conditions")
-       print("- Coverage area (250m)")
-       print("- Bandwidth (300 Mbps)")
+    # Scenario selection 
+    print("\nSelect test scenario:")
+    print("1. 1500 users - 300 Mbps")
+    print("2. 100 users - 200 Mbps")
+    print("3. 500 users - 100 Mbps")
+    
+    scenario = input("Enter scenario number (default=1): ") or "1"
+    
+    if scenario == "1":
+        # High Mobility Scenario
+        NUM_USERS = 200        
+        TOTAL_BANDWIDTH = 300  
+        TRAFFIC_TYPES = {
+                "video_streaming": (4, 10),  # HD streaming
+                "web_browsing": (1, 2),    # Light web activity
+                "voice_call": (0.1, 0.5)   # VoIP
+            }
+            
+        print("\nRunning Scenario 1:")
+        print("- 200 users")
+        print("- Bandwidth (300 Mbps)")
 
-   elif scenario == "2":
-       # Mixed Traffic Scenario
-       NUM_USERS = 1000      
-       RADIUS = 180         
-       TOTAL_BANDWIDTH = 200 
-       TRAFFIC_TYPES = {
-            "video_streaming": (5, 12),  # HD and some Ultra HD
-            "web_browsing": (1, 4),     # Moderate browsing
-            "voice_call": (0.3, 1)      # VoIP and video calls
-        }
+    elif scenario == "2":
+        # Mixed Traffic Scenario
+        NUM_USERS = 150            
+        TOTAL_BANDWIDTH = 200 
+        TRAFFIC_TYPES = {
+                "video_streaming": (5, 12),  # HD and some Ultra HD
+                "web_browsing": (1, 4),     # Moderate browsing
+                "voice_call": (0.3, 1)      # VoIP and video calls
+            }
 
-       print("\nRunning Scenario 3:")
-       print("- 1000 users with diverse traffic patterns")
-       print("- Coverage area (180m)")
-       print("- Bandwidth (200 Mbps)")
+        print("\nRunning Scenario 2:")
+        print("- 150 users")
+        print("- Bandwidth (200 Mbps)")
 
-   elif scenario == "3":
-       # Cell Edge Scenario
-       NUM_USERS = 500      
-       RADIUS = 150        
-       TOTAL_BANDWIDTH = 100
-       print("\nRunning Scenario 3:")
-       print("- 500 users at cell edge")
-       print("- Coverage area (150m)")
-       print("- Bandwidth (100 Mbps)")
+    elif scenario == "3":
+        # Cell Edge Scenario
+        NUM_USERS = 100           
+        TOTAL_BANDWIDTH = 100
+        TRAFFIC_TYPES = {
+                "video_streaming": (3, 9),  # SD/low-HD streaming
+                "web_browsing": (0.5, 2),  # Light browsing
+                "voice_call": (0.1, 0.9)   # VoIP
+            }
+        print("\nRunning Scenario 3:")
+        print("- 100 users")
+        print("- Bandwidth (100 Mbps)")
 
-   ALLOCATION_PER_STEP = 10
-   
-   # Create users based on scenario
-   if scenario == "3":
-       # Modified user creation for cell edge scenario
-       users = []
-       for i in range(NUM_USERS):
-           theta = random.uniform(0, 2 * np.pi)
-           # Force users to be in outer 30% of cell
-           r = random.uniform(0.7 * RADIUS, RADIUS)
-           x = r * np.cos(theta)
-           y = r * np.sin(theta)
-           distance = np.sqrt(x**2 + y**2)
-           traffic_type = random.choice(list(TRAFFIC_TYPES.keys()))
-           users.append(UE(i, traffic_type, (x, y), distance))
-   else:
-       users = create_users(NUM_USERS)
+    users = create_users(NUM_USERS)
 
-   # Print initial environment
-   print("\nInitial Environment Setup:")
-   print("UE | Type            | Demand     | Channel Quality | Distance")
-   for user in users:
-       print(f"{str(user.ue_id).ljust(2)} | {user.traffic_type.ljust(15)} | "
-             f"{f'{user.traffic_demand:.2f}'.rjust(5)} Mbps | "
-             f"{user.channel_quality:.2f}".ljust(14) + f" | {user.distance:.1f}")
+    # Print initial environment
+    print("\nInitial Environment Setup:")
+    print("UE | Type            | Demand     | Channel Quality")
+    for user in users:
+        print(f"{str(user.ue_id).ljust(2)} | {user.traffic_type.ljust(15)} | "
+                f"{f'{user.traffic_demand:.2f}'.rjust(5)} Mbps | "
+                f"{user.channel_quality:.2f}".ljust(14))
 
-   # Run Round-Robin
-   print("\n=== Running Sequential Round-Robin Scheduler ===")
-   (
-       fairness_over_time_rr,
-       throughput_over_time_rr,
-       latency_over_time_rr,
-   ) = sequential_round_robin(users, TOTAL_BANDWIDTH, ALLOCATION_PER_STEP)
+    # Run Round-Robin
+    print("\n=== Running Sequential Round-Robin Scheduler ===")
+    (
+        fairness_over_time_rr,
+        throughput_over_time_rr,
+        latency_over_time_rr,
+    ) = sequential_round_robin(users, TOTAL_BANDWIDTH, ALLOCATION_PER_STEP)
 
 
-   # Reset users for Proportional Fair
-   for user in users:
-       user.reset()
+    # Reset users for Proportional Fair
+    for user in users:
+        user.reset()
 
-   # Run Proportional Fair
-   print("\n=== Running Proportional Fair Scheduler ===")
-   (
-       fairness_over_time_pf,
-       throughput_over_time_pf,
-       latency_over_time_pf,
-   ) = proportional_fair_scheduler(users, TOTAL_BANDWIDTH, ALLOCATION_PER_STEP)
+    # Run Proportional Fair
+    print("\n=== Running Proportional Fair Scheduler ===")
+    (
+        fairness_over_time_pf,
+        throughput_over_time_pf,
+        latency_over_time_pf,
+    ) = proportional_fair_scheduler(users, TOTAL_BANDWIDTH, ALLOCATION_PER_STEP)
 
-   # Plot metrics
-   plot_metrics(
-       [fairness_over_time_rr, fairness_over_time_pf],
-       ["Round-Robin", "Proportional Fair"],
-       f"Fairness Over Time - Scenario {scenario}",
-       "Fairness Index",
-       save_as=f"fairness_scenario_{scenario}.png"
-   )
+    # Plot metrics
+    plot_metrics(
+        [fairness_over_time_rr, fairness_over_time_pf],
+        ["Round-Robin", "Proportional Fair"],
+        f"Fairness Over Time - Scenario {scenario}",
+        "Fairness Index",
+        save_as=f"fairness_scenario_{scenario}.png"
+    )
 
-   plot_metrics(
-       [throughput_over_time_rr, throughput_over_time_pf],
-       ["Round-Robin", "Proportional Fair"],
-       f"Throughput Over Time - Scenario {scenario}",
-       "Throughput (Mbps)",
-       save_as=f"throughput_scenario_{scenario}.png"
-   )
+    plot_metrics(
+        [throughput_over_time_rr, throughput_over_time_pf],
+        ["Round-Robin", "Proportional Fair"],
+        f"Throughput Over Time - Scenario {scenario}",
+        "Throughput (Mbps)",
+        save_as=f"throughput_scenario_{scenario}.png"
+    )
 
-   plot_metrics(
-       [latency_over_time_rr, latency_over_time_pf],
-       ["Round-Robin", "Proportional Fair"],
-       f"Average Latency Over Time - Scenario {scenario}",
-       "Latency (time steps)",
-       save_as=f"latency_scenario_{scenario}.png"
-   )
+    plot_metrics(
+        [latency_over_time_rr, latency_over_time_pf],
+        ["Round-Robin", "Proportional Fair"],
+        f"Average Latency Over Time - Scenario {scenario}",
+        "Latency (time steps)",
+        save_as=f"latency_scenario_{scenario}.png"
+    )
 
 if __name__ == "__main__":
     random.seed(3)
