@@ -258,9 +258,9 @@ def run_simulation():
 
     # Scenario selection 
     print("\nSelect test scenario:")
-    print("1. 1500 users - 300 Mbps")
-    print("2. 100 users - 200 Mbps")
-    print("3. 500 users - 100 Mbps")
+    print("1. 200 users - 300 Mbps")
+    print("2. 150 users - 200 Mbps")
+    print("3. 100 users - 100 Mbps")
     
     scenario = input("Enter scenario number (default=1): ") or "1"
     
