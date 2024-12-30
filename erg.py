@@ -1,11 +1,10 @@
-import numpy as np
 import random
 import matplotlib.pyplot as plt
 import copy
 
 
 BETA = 0.5  # Weight for averaging past and current rates
-NUM_USERS = 10
+NUM_USERS = 100
 TOTAL_BANDWIDTH = 100
 CHECKPOINT_INTERVAL = 10
 
@@ -245,6 +244,33 @@ def run_simulation():
         "web_browsing": (2, 10)
     }
 
+    # User selects a scenario
+    print("Select a scenario:")
+    print("1: 100 Users - 100 Mbps Basestation")
+    print("2: 150 Users - 200 Mbps Basestation")
+    print("3: 200 Users - 300 Mbps Basestation")
+
+    while True:
+        try:
+            choice = int(input("Enter your choice (1, 2, or 3): "))
+            if choice == 1:
+                NUM_USERS = 100
+                TOTAL_BANDWIDTH = 100
+                break
+            elif choice == 2:
+                NUM_USERS = 150
+                TOTAL_BANDWIDTH = 200
+                break
+            elif choice == 3:
+                NUM_USERS = 200
+                TOTAL_BANDWIDTH = 300
+                break
+            else:
+                print("Invalid choice. Please select 1, 2, or 3.")
+        except ValueError:
+            print("Invalid input. Please enter a number (1, 2, or 3).")
+
+    # Create users and run simulations
     users = create_users(NUM_USERS)
     users_rr = copy.deepcopy(users)
     users_pf = copy.deepcopy(users)
@@ -255,6 +281,7 @@ def run_simulation():
     print("\n=== Proportional Fair Scheduler ===")
     fairness_pf, throughput_pf, latency_pf = proportional_fair_scheduler(users_pf, TOTAL_BANDWIDTH)
 
+    # Plot metrics
     plot_metrics(
         [fairness_rr, fairness_pf],
         ["Round Robin", "Proportional Fair"],
@@ -277,5 +304,4 @@ def run_simulation():
 
 if __name__ == "__main__":
     random.seed(10)
-    np.random.seed(10)
     run_simulation()
