@@ -5,8 +5,8 @@ import copy
 
 
 BETA = 0.5  # Weight for averaging past and current rates
-NUM_USERS = 200
-TOTAL_BANDWIDTH = 300
+NUM_USERS = 100
+TOTAL_BANDWIDTH = 100
 CHECKPOINT_INTERVAL = 10
 
 class UE:
@@ -15,7 +15,7 @@ class UE:
         self.traffic_type = traffic_type
         self.channel_quality = self.calculate_initial_channel_quality()
         self.traffic_demand = self.generate_traffic_demand(traffic_type)
-        self.remaining_demand =  2*self.traffic_demand
+        self.remaining_demand =  self.traffic_demand
         self.initial_total_demand = self.remaining_demand
         self.total_latency = 0
         self.instantaneous_rate = 0
@@ -106,14 +106,17 @@ def sequential_round_robin(users, total_bandwidth):
                 print(f"Step {idx + 1}: ID {user.ue_id:<3} | "
                       f"Initial Demand: {user.initial_total_demand:.2f} | "
                       f"Channel Quality: {user.channel_quality:.2f} | "
-                      f"Allocated Bandwidth: {bandwidth_per_user:.2f} | "
+                      f"Bandwidth Sent From Basestation: {bandwidth_per_user:.2f} | "
+                      f"Bandwidth Received From User: {bandwidth_per_user*user.channel_quality:.2f} | "
+                      f"\n"
                       f"Remaining Demand Before: {user.remaining_demand:.2f}")
                     
                 
                 user.allocate_bandwidth(bandwidth_per_user*user.channel_quality)
                 dynamic_bandwidth -= bandwidth_per_user  # Update the remaining bandwidth
-                print(f"    Remaining Demand After: {user.remaining_demand:.2f}")
-                print(f"    Base Station Remaining Bandwidth After Allocation: {dynamic_bandwidth:.2f}")
+                print(f"Remaining Demand After: {user.remaining_demand:.2f}")
+                print(f"Base Station Remaining Bandwidth After Allocation: {dynamic_bandwidth:.2f}")
+                print()
             print("-" * 80)
 
         # Compute metrics
@@ -173,21 +176,25 @@ def proportional_fair_scheduler(users, total_bandwidth):
             for user, metric in metrics:
                 print(f"{user.ue_id:<10}{user.initial_total_demand:<25.2f}{user.remaining_demand:<25.2f}{user.channel_quality:<20.2f}{metric:<20.2f}")
 
-            print(f"\n{'Step-by-Step Allocation':^80}")
+            print()
             for idx, (user, metric) in enumerate(metrics):
                 if remaining_bandwidth <= 0:
                     break
                 bandwidth_allocation = min(user.remaining_demand / user.channel_quality, remaining_bandwidth)
                 effective_allocation = bandwidth_allocation * user.channel_quality
+                
                 print(f"Step {idx + 1}: ID {user.ue_id:<3} | "
                       f"Initial Bandwidth: {user.initial_total_demand:.2f} | "
                       f"PF Metric: {metric:.2f} | "
-                      f"Allocated Bandwidth: {effective_allocation:.2f} | "
+                      f"Bandwidth Sent From Basestation: {bandwidth_allocation:.2f} | "
+                      f"Bandwidth Received From User: {effective_allocation:.2f} | "
+                      f"\n"
                       f"Remaining Demand Before Allocation: {user.remaining_demand:.2f}")
                 user.allocate_bandwidth(effective_allocation)
                 remaining_bandwidth -= bandwidth_allocation
                 print(f"Remaining Demand After Allocation: {user.remaining_demand:.2f}")
-                print(f"    Base Station Remaining Bandwidth After Allocation: {remaining_bandwidth:.2f}")
+                print(f"Base Station Remaining Bandwidth After Allocation: {remaining_bandwidth:.2f}")
+                print()
             print("-" * 80)
 
         # Compute metrics
@@ -233,9 +240,9 @@ def run_simulation():
     global NUM_USERS, TOTAL_BANDWIDTH, TRAFFIC_TYPES
 
     TRAFFIC_TYPES = {
-        "video_streaming": (10, 25),
-        "voice_call": (5, 10),
-        "web_browsing": (1, 5)
+        "video_streaming": (20, 50),
+        "voice_call": (10, 20),
+        "web_browsing": (2, 10)
     }
 
     users = create_users(NUM_USERS)
