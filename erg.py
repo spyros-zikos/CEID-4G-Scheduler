@@ -5,7 +5,7 @@ import copy
 
 
 BETA = 0.5  # Weight for averaging past and current rates
-NUM_USERS = 100
+NUM_USERS = 10
 TOTAL_BANDWIDTH = 100
 CHECKPOINT_INTERVAL = 10
 
