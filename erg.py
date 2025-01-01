@@ -84,6 +84,9 @@ def sequential_round_robin(users, total_bandwidth):
 
         active_users = [user for user in users if user.active]
 
+        for user in active_users:
+            user.channel_quality = max(0.2, min(1.0, user.channel_quality + random.uniform(-0.1, 0.1)))
+
         dynamic_bandwidth = total_bandwidth
         bandwidth_per_user = dynamic_bandwidth / len(active_users) if active_users else 0
 
@@ -152,6 +155,10 @@ def proportional_fair_scheduler(users, total_bandwidth):
                 user.increment_latency()
 
         active_users = [user for user in users if user.active]
+
+        # Dynamically update channel quality
+        for user in active_users:
+            user.channel_quality = max(0.2, min(1.0, user.channel_quality + random.uniform(-0.1, 0.1)))
 
         dynamic_bandwidth = total_bandwidth
         remaining_bandwidth = dynamic_bandwidth
